@@ -1,0 +1,1 @@
+from mscmivida import main

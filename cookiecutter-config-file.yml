@@ -1,0 +1,11 @@
+# This file contains values from Cookiecutter
+
+default_context:
+  project_name: "mscMIVIDA"
+  repo_name: "mscmivida"
+  description: "Supporting code for the mscMIVIDA project."
+  organization: "Fraunhofer AICOS"
+  license: "No license"
+  organization_email: "no-reply@fraunhofer.pt"
+  line_length: "120"
+  python_minimal_version: "3.12"

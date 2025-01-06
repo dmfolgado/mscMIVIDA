@@ -1,0 +1,9 @@
+name: python312
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - virtualenv>=20.20.0
+  - pip
+  - poetry>=2.0.0, <3.0.0
