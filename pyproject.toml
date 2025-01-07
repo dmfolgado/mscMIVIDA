@@ -25,6 +25,7 @@ mlflow-skinny = "^2.8.1"
 # Required due to issues stemming from boto3 outdated dependency specification (https://github.com/python-poetry/poetry-plugin-export/issues/183)
 # urllib3 = ">=1.25.4,<1.27"
 torch = "^2.5.1"
+torchvision = "^0.20.1"
 
 
 [tool.poetry.group.prod.dependencies]
