@@ -53,4 +53,14 @@ LOG_TO_MLFLOW = False
 
 _IS_WINDOWS = platform.system() == "Windows"
 
+# Utility constants related to the MIT-BIH loader
+MIT_BIH_PATH = "/net/sharedfolders/datasets/MOTION/mit-bih-arrhythmia-database-1.0.0/"
+AAMI = ["N", "SVEB", "VEB", "F", "Q"]
+AAMI_N = ["N", "L", "R"]
+AAMI_SVEB = ["A", "a", "J", "S", "e", "j"]
+AAMI_VEB = ["V", "E"]
+AAMI_F = ["F"]
+AAMI_Q = ["P", "/", "f", "u"]
+AAMI_ALL = AAMI_N + AAMI_SVEB + AAMI_VEB + AAMI_F + AAMI_Q
+
 # EOF

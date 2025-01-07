@@ -26,7 +26,10 @@ mlflow-skinny = "^2.8.1"
 # urllib3 = ">=1.25.4,<1.27"
 torch = "^2.5.1"
 torchvision = "^0.20.1"
+wfdb = "^4.1.2"
 
+[tool.poetry.group.prod]
+optional = true
 
 [tool.poetry.group.prod.dependencies]
 fastapi = "^0.115.0"
