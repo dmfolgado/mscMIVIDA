@@ -1,6 +1,10 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from data.loader_mitbih import MITBIHDataset
+
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 
 HEARTBEAT_CLASS_MAPPING = {
     0: "Normal",
@@ -20,10 +24,10 @@ for i, label in enumerate(sorted(set(y))):
     mean_heartbeat = np.mean(X[indices], axis=0)
     std_heartbeat = np.std(X[indices], axis=0)
 
-    axs[i].plot(mean_heartbeat, color="k", label="Mean")
+    axs[i].plot(np.linspace(0, 500, len(mean_heartbeat)), mean_heartbeat, color="k", label="Mean")
 
     axs[i].fill_between(
-        range(len(mean_heartbeat)),
+        np.linspace(0, 500, len(mean_heartbeat)),
         mean_heartbeat - std_heartbeat,
         mean_heartbeat + std_heartbeat,
         color="gray",
@@ -31,10 +35,12 @@ for i, label in enumerate(sorted(set(y))):
         label="±1 Std Dev",
     )
 
+    axs[i].set_ylim(-2, 2.8)
     axs[i].set_title(HEARTBEAT_CLASS_MAPPING.get(label, "Unknown"))
 
 plt.tight_layout()
 plt.show(block=False)
+plt.savefig("Meanwaves.pdf")
 
 # A short block of code to generate representative heartbeat traces for the intuition image.
 # 6x6. let us consider a scenario with 80% of heartbeats from healthy patients and 20% with SVEB
@@ -78,4 +84,4 @@ for unused_axis in axes[len(representative_idx) :]:  # Hide unused subplots
     unused_axis.axis("off")
 
 plt.tight_layout()
-plt.show()
+plt.show(block=False)
