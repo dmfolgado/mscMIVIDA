@@ -17,7 +17,7 @@ exclude = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9, ^3.12"
+python = ">=3.12,<3.13"
 python-dotenv = "^1.0.0"
 loguru = "^0.7.2"
 mlflow-skinny = "^2.8.1"
@@ -27,6 +27,9 @@ mlflow-skinny = "^2.8.1"
 torch = "^2.5.1"
 torchvision = "^0.20.1"
 wfdb = "^4.1.2"
+umap = "^0.1.1"
+pymdma = "^0.1.7"
+transformers = "^4.49.0"
 
 [tool.poetry.group.prod]
 optional = true
