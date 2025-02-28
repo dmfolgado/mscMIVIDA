@@ -15,7 +15,7 @@ dotenv.load_dotenv(project_dir / ".secrets", override=True)
 
 # Some common paths
 _reports_dir = str(getenv("DIR_REPORTS"))
-report_dir = project_dir / _reports_dir
+report_dir = project_dir / _reports_dir / "figures"
 
 _figures_dir = str(getenv("DIR_FIGURES"))
 figures_dir = project_dir / _figures_dir

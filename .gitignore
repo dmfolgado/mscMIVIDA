@@ -209,4 +209,7 @@ references/
 # Instructions
 src/README.md
 
+# Datasets and reports.
+data/*
+reports/*
 # EOF
