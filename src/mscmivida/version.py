@@ -1,6 +1,6 @@
 from os.path import join
 
-from config import project_dir
+from .config import project_dir
 from loguru import logger
 
 with open(join(project_dir, "VERSION"), encoding="utf-8") as f:

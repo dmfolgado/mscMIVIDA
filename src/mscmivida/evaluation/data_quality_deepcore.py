@@ -12,12 +12,14 @@ from pymdma.image.models.features import ExtractorFactory
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from torch import tensor, long
+from selection_experiment import SelectionExperiment
 
-
-CKPT_FOLDER = Path("/home/barbara/DeepCore/result/Entropy")
+RESULT_FOLDER = Path("/home/barbara/DeepCore/result")
 DATA_PATH = Path("/home/barbara/DeepCore/datasets/")
-FEATURES_PATH = Path("src/mscmivida/evaluation/28fev")
+FEATURES_PATH = Path("src/mscmivida/evaluation/29fev")
 FEATURES_PATH.mkdir(parents=True, exist_ok=True)
+
+METHOD_LIST = ["Entropy", "Uniform", "ContextualDiversity"]
 
 def CIFAR10(data_path):
     channel = 3
@@ -49,34 +51,17 @@ def parse_experiment_checkpoint(path: str) -> tuple[float, float]:
 
 def compute_audit_metrics(full_features, subset_features):
     """Calculates audit metrics"""
-    ip, ir, giqa = ImprovedPrecision(k=3), ImprovedRecall(k=3), GIQA()
-    fid, msid, coverage, density = FrechetDistance(), MultiScaleIntrinsicDistance(), Coverage(), Density()
-    print("Improved Precision...")
-    ip_result = ip.compute(full_features, subset_features).value
-    print("Improved Recall...")
-    ir_result = ir.compute(full_features, subset_features).value
-    print("GIQA...")
-    giqa_result = giqa.compute(full_features, subset_features).value
-    print("FID...")
-    fid_result = fid.compute(full_features, subset_features).value
-    print("MSID...")
-    msid_result = msid.compute(full_features, subset_features).value
-    print("Coverage...")
-    coverage_result = coverage.compute(full_features, subset_features).value
-    print("Density...")
-    density_result = density.compute(full_features, subset_features).value
-    
-    return {
-        "Precision": ip_result[0], "Recall": ir_result[0], "GIQA": giqa_result[0],
-        "FID": fid_result, "MSID": msid_result, "Coverage": coverage_result, "Density": density_result
+    metrics = {
+        "Precision": ImprovedPrecision(k=3),
+        "Recall": ImprovedRecall(k=3),
+        "GIQA": GIQA(),
+        "FID": FrechetDistance(),
+        "MSID": MultiScaleIntrinsicDistance(),
+        "Coverage": Coverage(),
+        "Density": Density(),
     }
-
-
-def load_subset_features(full_features, indices):
-    """Obtains the features of a subset from the indexes"""
-    subset_features = full_features[indices]
-    print(f"Subset shape: {subset_features.shape}")
-    return subset_features
+    results = {name: metric.compute(full_features, subset_features).value[0] for name, metric in metrics.items()}
+    return results
 
 def extract_and_save_features(dataset, extractor, device, filename):
     """Extracts features from a dataset with a dino model, saves and returns"""
@@ -88,17 +73,15 @@ def extract_and_save_features(dataset, extractor, device, filename):
         print(f"Loaded features shape: {features.shape}")
         return features, labels
 
-    dataloader = DataLoader(dataset, batch_size=32, shuffle=False) #o dataloader carrega imagens em batches
+    dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
     full_features, full_labels = [], []
     print(f"Extracting features to {filename}...")
 
-    for i, (img, label) in enumerate(dataloader): #percorre o dataset e extrai features
-        """i é nº de batch, Cada img contém um batch de imagens - tensor de tamanho (batch size, 3RGB, H, W dimensões da imagem)"""
+    for i, (img, label) in enumerate(dataloader):
         img = img.to(device)
-        features = extractor(img) #extração com modelo pre treinado (dino), as features extraídas são tensores
-        full_features.append(features.detach().cpu().numpy()) #salva os tensores extraídos na CPU como NumPy arrays
+        features = extractor(img)
+        full_features.append(features.detach().cpu().numpy())
         full_labels.append(label.numpy())
-
         if i % 10 == 0:
             print(f"Processed {i * 32 + len(img)}/{len(dataset)} images...")
 
@@ -110,45 +93,42 @@ def extract_and_save_features(dataset, extractor, device, filename):
     return full_features, full_labels
 
 
-
 def main(): 
     class_names, dst_train, dst_test = CIFAR10(DATA_PATH)
     extractor = ExtractorFactory.model_from_name(name="dino_vits8")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
     extractor = extractor.to(device)
 
     full_features, full_labels = extract_and_save_features(dst_train, extractor, device, "full_dataset.npz")
-    evaluation_metrics_db = {"Fraction": [], "Accuracy": [], "Precision": [], "Recall": [], "GIQA": [], "FID": [], "MSID": [], "Coverage": [], "Density": []}
 
-    for f in CKPT_FOLDER.rglob("*.ckpt"):
-        fraction, accuracy = parse_experiment_checkpoint(str(f))
-        evaluation_metrics_db["Fraction"].append(fraction)
-        evaluation_metrics_db["Accuracy"].append(accuracy)
+    experiment = SelectionExperiment(experiment_name="deepcore_methods_experiment")
 
-        print(f"Processing subset for fraction: {fraction}%")
-        checkpoint = torch.load(f)
-        subset_indices = checkpoint["subset"]["indices"]
-        subset_features = load_subset_features(full_features, subset_indices)
-        print(f"Features from fraction {fraction}% loaded")
-        audit_results = compute_audit_metrics(full_features, subset_features)
-        for key in audit_results:
-            evaluation_metrics_db[key].append(audit_results[key])
+    for method in METHOD_LIST:
+        CKPT_FOLDER = RESULT_FOLDER / method
+        selection_method = experiment.add_method(method)
+        fractions, accuracies = [], []
+        audit_metrics = {metric: [] for metric in ["Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]}
 
+        for f in CKPT_FOLDER.rglob("*.ckpt"):
+            fraction, accuracy = parse_experiment_checkpoint(str(f))
+            print(f"Processing {method} - Fraction: {fraction}%")
+            fractions.append(fraction)
+            accuracies.append(accuracy)
 
-    evaluation_metrics_db = pd.DataFrame(evaluation_metrics_db).sort_values("Fraction")
-    print(evaluation_metrics_db)
-    evaluation_metrics_db.to_csv(FEATURES_PATH / "audit_results.csv", index=False)
+            checkpoint = torch.load(f)
+            subset_indices = checkpoint["subset"]["indices"]
+            subset_features = full_features[subset_indices]
+            audit_results = compute_audit_metrics(full_features, subset_features)
+            for key in audit_metrics:
+                audit_metrics[key].append(audit_results[key])
 
-    # Plot Fraction vs Accuracy
-    fig, ax = plt.subplots()
-    ax.plot(evaluation_metrics_db["Fraction"], evaluation_metrics_db["Accuracy"], "o-")
-    ax.set_xlabel("Fraction", fontsize=12)
-    ax.set_ylabel("Accuracy (%)", fontsize=12)
-    ax.set_xlim(0, 100)
-    ax.set_ylim(0, 100)
+        selection_method.set_metric("Fraction", fractions)
+        selection_method.set_metric("Accuracy", accuracies)
+        for metric_name, values in audit_metrics.items():
+            selection_method.set_metric(metric_name, values)
 
-    plt.show(block=False)
+    experiment.save()
+    experiment.plot_all_metrics(figsize=(15, 7), save_path="all_methods_and_metrics_comparison.png")
 
 if __name__ == "__main__":
     main()

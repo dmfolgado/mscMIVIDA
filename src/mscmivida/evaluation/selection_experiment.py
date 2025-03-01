@@ -12,7 +12,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from config import data_processed_dir, report_dir
+from mscmivida.config import data_processed_dir, report_dir
 from loguru import logger
 
 
@@ -22,7 +22,8 @@ class SelectionMethod:
     def __init__(self, method_name):
         self.method_name = method_name
         self.metrics = {}
-        self.metric_names = ["metric1", "metric2", "metric3", "metric4"]  # TODO: Replace for the actual metric names.
+        #self.metric_names = ["metric1", "metric2", "metric3", "metric4"]  # TODO: Replace for the actual metric names.
+        self.metric_names = ["Fraction", "Accuracy", "Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]
 
         for metric in self.metric_names:
             self.metrics[metric] = None
