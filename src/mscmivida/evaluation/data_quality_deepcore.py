@@ -1,30 +1,28 @@
 from pathlib import Path
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
 from loguru import logger
-from pymdma.image.measures.synthesis_val import ImprovedPrecision, ImprovedRecall
 from pymdma.general.measures.external.piq import FrechetDistance, MultiScaleIntrinsicDistance
 from pymdma.general.measures.prdc import Coverage, Density
-from pymdma.image.measures.synthesis_val import GIQA
+from pymdma.image.measures.synthesis_val import GIQA, ImprovedPrecision, ImprovedRecall
 from pymdma.image.models.features import ExtractorFactory
+from selection_experiment import SelectionExperiment
+from torch import long, tensor
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
-from torch import tensor, long
-from selection_experiment import SelectionExperiment
 
-RESULT_FOLDER = Path("/home/barbara/DeepCore/result")
-DATA_PATH = Path("/home/barbara/DeepCore/datasets/")
-FEATURES_PATH = Path("src/mscmivida/evaluation/29fev")
+RESULT_FOLDER = Path("/home/duarte.folgado/TeslaVM/DeepCore/result")
+DATA_PATH = Path("/home/duarte.folgado/TeslaVM/datasets/")
+FEATURES_PATH = Path("/home/duarte.folgado/dev/ACHILLES/mscmivida/data/processed")
 FEATURES_PATH.mkdir(parents=True, exist_ok=True)
 
 METHOD_LIST = ["Entropy", "Uniform", "ContextualDiversity"]
 
-def CIFAR10(data_path):
-    channel = 3
-    im_size = (32, 32)
-    num_classes = 10
+
+def load_cifar10(data_path):
     mean = [0.4914, 0.4822, 0.4465]
     std = [0.2470, 0.2435, 0.2616]
 
@@ -49,8 +47,9 @@ def parse_experiment_checkpoint(path: str) -> tuple[float, float]:
         logger.error(f"Failed to parse checkpoint path: {path} | Error: {e}")
         return 0.0, 0.0
 
+
 def compute_audit_metrics(full_features, subset_features):
-    """Calculates audit metrics"""
+    """Calculates audit metrics."""
     metrics = {
         "Precision": ImprovedPrecision(k=3),
         "Recall": ImprovedRecall(k=3),
@@ -63,19 +62,21 @@ def compute_audit_metrics(full_features, subset_features):
     results = {name: metric.compute(full_features, subset_features).value[0] for name, metric in metrics.items()}
     return results
 
+
 def extract_and_save_features(dataset, extractor, device, filename):
-    """Extracts features from a dataset with a dino model, saves and returns"""
+    """Extracts features from a dataset with a dino model, saves and
+    returns."""
     file_path = FEATURES_PATH / filename
     if file_path.exists():
-        print(f"Features already extracted. Loading {file_path}...")
+        logger.info(f"Features already extracted. Loading {file_path}...")
         data = np.load(file_path)
         features, labels = data["features"], data["labels"]
-        print(f"Loaded features shape: {features.shape}")
+        logger.info(f"Loaded features shape: {features.shape}")
         return features, labels
 
     dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
     full_features, full_labels = [], []
-    print(f"Extracting features to {filename}...")
+    logger.info(f"Extracting features to {filename}...")
 
     for i, (img, label) in enumerate(dataloader):
         img = img.to(device)
@@ -83,18 +84,18 @@ def extract_and_save_features(dataset, extractor, device, filename):
         full_features.append(features.detach().cpu().numpy())
         full_labels.append(label.numpy())
         if i % 10 == 0:
-            print(f"Processed {i * 32 + len(img)}/{len(dataset)} images...")
+            logger.info(f"Processed {i * 32 + len(img)}/{len(dataset)} images...")
 
     full_features = np.concatenate(full_features, axis=0)
     full_labels = np.concatenate(full_labels, axis=0)
     np.savez(FEATURES_PATH / filename, features=full_features, labels=full_labels)
-    print(f"{filename} feature shape: {full_features.shape}")
+    logger.info(f"{filename} feature shape: {full_features.shape}")
 
     return full_features, full_labels
 
 
-def main(): 
-    class_names, dst_train, dst_test = CIFAR10(DATA_PATH)
+def main():
+    class_names, dst_train, dst_test = load_cifar10(DATA_PATH)
     extractor = ExtractorFactory.model_from_name(name="dino_vits8")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     extractor = extractor.to(device)
@@ -104,14 +105,14 @@ def main():
     experiment = SelectionExperiment(experiment_name="deepcore_methods_experiment")
 
     for method in METHOD_LIST:
-        CKPT_FOLDER = RESULT_FOLDER / method
+        ckpt_folder = RESULT_FOLDER / method
         selection_method = experiment.add_method(method)
         fractions, accuracies = [], []
         audit_metrics = {metric: [] for metric in ["Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]}
 
-        for f in CKPT_FOLDER.rglob("*.ckpt"):
+        for f in ckpt_folder.rglob("*.ckpt"):
             fraction, accuracy = parse_experiment_checkpoint(str(f))
-            print(f"Processing {method} - Fraction: {fraction}%")
+            logger.info(f"Processing {method} - Fraction: {fraction}%")
             fractions.append(fraction)
             accuracies.append(accuracy)
 
@@ -129,6 +130,7 @@ def main():
 
     experiment.save()
     experiment.plot_all_metrics(figsize=(15, 7), save_path="all_methods_and_metrics_comparison.png")
+
 
 if __name__ == "__main__":
     main()
