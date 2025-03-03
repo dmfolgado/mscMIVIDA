@@ -63,4 +63,8 @@ AAMI_F = ["F"]
 AAMI_Q = ["P", "/", "f", "u"]
 AAMI_ALL = AAMI_N + AAMI_SVEB + AAMI_VEB + AAMI_F + AAMI_Q
 
+# Standardized colormaps for plotting
+FHP_COLORMAP = ["#179c7d", "#f29400", "#1f82c0", "#e2001a", "#5fc800"]
+FHP_MARKER_TYPE = ["o", "s", "^", "x", "D"]
+
 # EOF
