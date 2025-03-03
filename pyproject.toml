@@ -30,6 +30,7 @@ wfdb = "^4.1.2"
 umap = "^0.1.1"
 pymdma = "^0.1.7"
 transformers = "^4.49.0"
+dill = "^0.3.9"
 
 [tool.poetry.group.prod]
 optional = true

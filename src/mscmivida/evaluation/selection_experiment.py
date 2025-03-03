@@ -156,7 +156,7 @@ class SelectionExperiment:
             logger.error("No data to plot")
             return None, None
 
-        fig, axes = plt.subplots(1, len(metrics), figsize=figsize)
+        fig, axes = plt.subplots(1, len(metrics) - 1, figsize=figsize)
 
         if len(metrics) == 1:
             axes = np.array([axes])
@@ -164,8 +164,9 @@ class SelectionExperiment:
         colors = plt.cm.tab10(np.linspace(0, 1, len(methods)))
         markers = cycle(["o", "s", "^", "D", "v", "p", "*", "h", "X"])
         linestyles = cycle(["-", "--", "-.", ":"])
+        x = self.get_all_results()[("Entropy", "Fraction")]
 
-        for j, metric_name in enumerate(metrics):
+        for j, metric_name in enumerate(metrics[1:]):
             ax = axes[j]
 
             for i, method_name in enumerate(methods):
@@ -173,7 +174,6 @@ class SelectionExperiment:
                 metric_data = method.get_metric(metric_name)
 
                 if metric_data is not None:
-                    x = np.arange(len(metric_data))
 
                     color = colors[i]
                     marker = next(markers)
@@ -192,6 +192,7 @@ class SelectionExperiment:
 
             ax.set_title(metric_name, fontsize=12, fontweight="bold")
             ax.set_xlabel("Index")
+            ax.set_xlim(-25, 125)
 
             if j == 0:
                 ax.set_ylabel("Value")
