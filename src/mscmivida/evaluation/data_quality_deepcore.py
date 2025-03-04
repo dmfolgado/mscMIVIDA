@@ -1,9 +1,9 @@
+import os
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
+from config import data_interim_dir, data_raw_dir
 from loguru import logger
 from pymdma.general.measures.external.piq import FrechetDistance, MultiScaleIntrinsicDistance
 from pymdma.general.measures.prdc import Coverage, Density
@@ -11,18 +11,13 @@ from pymdma.image.measures.synthesis_val import GIQA, ImprovedPrecision, Improve
 from pymdma.image.models.features import ExtractorFactory
 from selection_experiment import SelectionExperiment
 from torch import long, tensor
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
-RESULT_FOLDER = Path("/home/duarte.folgado/TeslaVM/DeepCore/result")
-DATA_PATH = Path("/home/duarte.folgado/TeslaVM/datasets/")
-FEATURES_PATH = Path("/home/duarte.folgado/dev/ACHILLES/mscmivida/data/processed")
-FEATURES_PATH.mkdir(parents=True, exist_ok=True)
-
-METHOD_LIST = ["Entropy", "Uniform", "ContextualDiversity"]
+METHOD_LIST = ["Uniform", "Entropy", "ContextualDiversity", "Cal"]
 
 
-def load_cifar10(data_path):
+def load_cifar10(data_path: str):
     mean = [0.4914, 0.4822, 0.4465]
     std = [0.2470, 0.2435, 0.2616]
 
@@ -48,7 +43,7 @@ def parse_experiment_checkpoint(path: str) -> tuple[float, float]:
         return 0.0, 0.0
 
 
-def compute_audit_metrics(full_features, subset_features):
+def compute_audit_metrics(full_features: np.ndarray, subset_features: np.ndarray):
     """Calculates audit metrics."""
     metrics = {
         "Precision": ImprovedPrecision(k=3),
@@ -66,7 +61,7 @@ def compute_audit_metrics(full_features, subset_features):
 def extract_and_save_features(dataset, extractor, device, filename):
     """Extracts features from a dataset with a dino model, saves and
     returns."""
-    file_path = FEATURES_PATH / filename
+    file_path = data_interim_dir / filename
     if file_path.exists():
         logger.info(f"Features already extracted. Loading {file_path}...")
         data = np.load(file_path)
@@ -88,24 +83,34 @@ def extract_and_save_features(dataset, extractor, device, filename):
 
     full_features = np.concatenate(full_features, axis=0)
     full_labels = np.concatenate(full_labels, axis=0)
-    np.savez(FEATURES_PATH / filename, features=full_features, labels=full_labels)
+    np.savez(data_interim_dir / filename, features=full_features, labels=full_labels)
     logger.info(f"{filename} feature shape: {full_features.shape}")
 
     return full_features, full_labels
 
 
-def main():
-    class_names, dst_train, dst_test = load_cifar10(DATA_PATH)
-    extractor = ExtractorFactory.model_from_name(name="dino_vits8")
+if __name__ == "__main__":
+    feature_extractor_name = "dino_vits8"
+
+    # Dataset loader
+    class_names, dst_train, dst_test = load_cifar10(data_raw_dir)
+
+    # Extraction of deep features from pre-trained model
+    extractor = ExtractorFactory.model_from_name(name=feature_extractor_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     extractor = extractor.to(device)
+    full_features, full_labels = extract_and_save_features(
+        dst_train,
+        extractor,
+        device,
+        f"deep_features_{feature_extractor_name}.npz",
+    )
 
-    full_features, full_labels = extract_and_save_features(dst_train, extractor, device, "full_dataset.npz")
-
+    # Setup of a SelectionExperiment to evaluate data quality
     experiment = SelectionExperiment(experiment_name="deepcore_methods_experiment")
 
     for method in METHOD_LIST:
-        ckpt_folder = RESULT_FOLDER / method
+        ckpt_folder = Path(os.path.join(data_interim_dir, "deepcore_selection", method))
         selection_method = experiment.add_method(method)
         fractions, accuracies = [], []
         audit_metrics = {metric: [] for metric in ["Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]}
@@ -128,9 +133,4 @@ def main():
         for metric_name, values in audit_metrics.items():
             selection_method.set_metric(metric_name, values)
 
-    experiment.save()
-    experiment.plot_all_metrics(figsize=(15, 7), save_path="all_methods_and_metrics_comparison.png")
-
-
-if __name__ == "__main__":
-    main()
+        experiment.save()

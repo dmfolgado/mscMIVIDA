@@ -120,7 +120,7 @@ repos:
             name: add-trailing-comma
             description: Automatically add trailing commas to calls and literals.
     - repo: https://github.com/PyCQA/flake8
-      rev: 7.1.1
+      rev: 7.1.2
       hooks:
           - id: flake8
             name: flake8 - check the style and quality of some python code
@@ -139,13 +139,13 @@ repos:
                 - flake8-typing-imports==1.12.0
                 #- flake8-match==1.0.0
     - repo: https://github.com/psf/black
-      rev: 24.10.0
+      rev: 25.1.0
       hooks:
           - id: black
             name: black - consistent Python code formatting
             description: The uncompromising Python code formatter
     - repo: https://github.com/PyCQA/isort
-      rev: 5.13.2
+      rev: 6.0.1
       hooks:
           - id: isort
             name: isort - sort Python imports
@@ -242,7 +242,7 @@ repos:
             language: system
             files: requirements/requirements*.txt
     - repo: https://github.com/PyCQA/bandit
-      rev: 1.8.0
+      rev: 1.8.3
       hooks:
           - id: bandit
             name: bandit - find common security issues in Python code.
@@ -252,17 +252,17 @@ repos:
 ##########################################################################################
 # Git
 ##########################################################################################
-    - repo: https://github.com/commitizen-tools/commitizen
-      rev: v4.1.0
-      hooks:
-          - id: commitizen
-            stages: [commit-msg]
-            additional_dependencies: [git+ssh://git@git.fraunhofer.pt/is2020/mlops-commit-drafter.git@v1.0.4#egg=cz_bitbucket_jira_conventional]
+#    - repo: https://github.com/commitizen-tools/commitizen
+#      rev: v4.1.0
+#      hooks:
+#          - id: commitizen
+#            stages: [commit-msg]
+#            additional_dependencies: [git+ssh://git@git.fraunhofer.pt/is2020/mlops-commit-drafter.git@v1.0.4#egg=cz_bitbucket_jira_conventional]
 ##########################################################################################
 # Documentation
 ##########################################################################################
     - repo: https://github.com/executablebooks/mdformat
-      rev: 0.7.21
+      rev: 0.7.22
       hooks:
           - id: mdformat
             name: mdformat - Markdown formatter that can be used to enforce a consistent style in Markdown files
