@@ -81,7 +81,7 @@ class SelectionExperiment:
         """Get list of metric names used in the experiment."""
         if len(self.method_names) > 0:
             first_method = self.methods[self.method_names[0]]
-            return first_method.metric_names
+            return list(first_method.metrics.keys())
         return []
 
     def compare_methods(self, metric_name):
