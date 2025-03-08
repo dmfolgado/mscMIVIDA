@@ -15,13 +15,42 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 METHOD_LIST = ["Uniform", "Entropy", "ContextualDiversity", "Cal"]
+FEATURE_EXTRACTORS = ["dino_vits8", "vit_b_32", "inception_fid", "vgg16"]
 
 
-def load_cifar10(data_path: str):
-    mean = [0.4914, 0.4822, 0.4465]
-    std = [0.2470, 0.2435, 0.2616]
+def get_transform(extractor_name):
+    """Returns the required transformation based on the name of the
+    extractor."""
+    if "inception_fid" in extractor_name:
+        mean = [0.5, 0.5, 0.5]
+        std = [0.5, 0.5, 0.5]
+        return transforms.Compose(
+            [
+                transforms.Resize(299),  # InceptionV3 requires 299x299
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std),  # Normalizing between (-1, 1)
+            ],
+        )
+    elif "vit_b_32" in extractor_name:
+        mean = [0.4914, 0.4822, 0.4465]
+        std = [0.2470, 0.2435, 0.2616]
+        return transforms.Compose(
+            [
+                transforms.Resize(224),  # ViT requires 224x224
+                transforms.ToTensor(),
+                transforms.Normalize(mean=mean, std=std),
+            ],
+        )
+    else:
+        # The other deep feature extractors do not have specific requirements
+        mean = [0.4914, 0.4822, 0.4465]
+        std = [0.2470, 0.2435, 0.2616]
+        return transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 
-    transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+
+def load_cifar10(data_path, extractor_name):
+    transform = get_transform(extractor_name)
+
     dst_train = datasets.CIFAR10(data_path, train=True, download=True, transform=transform)
     dst_test = datasets.CIFAR10(data_path, train=False, download=True, transform=transform)
     class_names = dst_train.classes
@@ -90,47 +119,52 @@ def extract_and_save_features(dataset, extractor, device, filename):
 
 
 if __name__ == "__main__":
-    feature_extractor_name = "dino_vits8"
+    for feature_extractor_name in FEATURE_EXTRACTORS:
 
-    # Dataset loader
-    class_names, dst_train, dst_test = load_cifar10(data_raw_dir)
+        # Dataset loader
+        class_names, dst_train, dst_test = load_cifar10(data_raw_dir, feature_extractor_name)
 
-    # Extraction of deep features from pre-trained model
-    extractor = ExtractorFactory.model_from_name(name=feature_extractor_name)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    extractor = extractor.to(device)
-    full_features, full_labels = extract_and_save_features(
-        dst_train,
-        extractor,
-        device,
-        f"deep_features_{feature_extractor_name}.npz",
-    )
+        # Extraction of deep features from pre-trained model
+        extractor = ExtractorFactory.model_from_name(name=feature_extractor_name)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        extractor = extractor.to(device)
+        full_features, full_labels = extract_and_save_features(
+            dst_train,
+            extractor,
+            device,
+            f"deep_features_{feature_extractor_name}.npz",
+        )
 
-    # Setup of a SelectionExperiment to evaluate data quality
-    experiment = SelectionExperiment(experiment_name="deepcore_methods_experiment")
+        # Setup of a SelectionExperiment to evaluate data quality
+        experiment = SelectionExperiment(
+            experiment_name=f"deepcore_methods_experiment_with_{feature_extractor_name}_extractor",
+        )
+        logger.info(f"Starting experiment with {feature_extractor_name}...")
 
-    for method in METHOD_LIST:
-        ckpt_folder = Path(os.path.join(data_interim_dir, "deepcore_selection", method))
-        selection_method = experiment.add_method(method)
-        fractions, accuracies = [], []
-        audit_metrics = {metric: [] for metric in ["Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]}
+        for method in METHOD_LIST:
+            ckpt_folder = Path(os.path.join(data_interim_dir, "deepcore_selection", method))
+            selection_method = experiment.add_method(method)
+            fractions, accuracies = [], []
+            audit_metrics = {
+                metric: [] for metric in ["Precision", "Recall", "GIQA", "FID", "MSID", "Coverage", "Density"]
+            }
 
-        for f in ckpt_folder.rglob("*.ckpt"):
-            fraction, accuracy = parse_experiment_checkpoint(str(f))
-            logger.info(f"Processing {method} - Fraction: {fraction}%")
-            fractions.append(fraction)
-            accuracies.append(accuracy)
+            for f in ckpt_folder.rglob("*.ckpt"):
+                fraction, accuracy = parse_experiment_checkpoint(str(f))
+                logger.info(f"Processing {method} - Fraction: {fraction}%")
+                fractions.append(fraction)
+                accuracies.append(accuracy)
 
-            checkpoint = torch.load(f)
-            subset_indices = checkpoint["subset"]["indices"]
-            subset_features = full_features[subset_indices]
-            audit_results = compute_audit_metrics(full_features, subset_features)
-            for key in audit_metrics:
-                audit_metrics[key].append(audit_results[key])
+                checkpoint = torch.load(f)
+                subset_indices = checkpoint["subset"]["indices"]
+                subset_features = full_features[subset_indices]
+                audit_results = compute_audit_metrics(full_features, subset_features)
+                for key in audit_metrics:
+                    audit_metrics[key].append(audit_results[key])
 
-        selection_method.set_metric("Fraction", fractions)
-        selection_method.set_metric("Accuracy", accuracies)
-        for metric_name, values in audit_metrics.items():
-            selection_method.set_metric(metric_name, values)
+            selection_method.set_metric("Fraction", fractions)
+            selection_method.set_metric("Accuracy", accuracies)
+            for metric_name, values in audit_metrics.items():
+                selection_method.set_metric(metric_name, values)
 
-        experiment.save()
+            experiment.save()
