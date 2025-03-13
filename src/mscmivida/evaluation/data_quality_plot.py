@@ -9,5 +9,5 @@ if __name__ == "__main__":
     experiment = SelectionExperiment().load(EXPERIMENT_PATH)
 
     # Figure 1: Comparison between different selection methods across different data quality metrics.
-    experiment.plot_all_metrics(save_path="vit_b_32.svg")
+    experiment.plot_all_metrics()
     plt.show(block=False)
