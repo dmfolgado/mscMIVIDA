@@ -166,6 +166,8 @@ class SelectionExperiment:
                         color=FHP_COLORMAP[i],
                         label=method_name,
                     )
+            if (metric_name == "Precision") or (metric_name == "Recall"):
+                ax.set_ylim(0.5, 1.1)
 
             ax.set_title(metric_name, fontsize=12)
             ax.set_xlabel("Subset size / %")
